@@ -3,7 +3,6 @@
 
 using namespace std;
 
-// Create a kernel to estimate pi
 __global__ 
 void count_samples_in_circles(float* d_randNumsX, float* d_randNumsY, int* d_countInBlocks, int num_blocks, int nsamples) 
 {
@@ -13,7 +12,6 @@ void count_samples_in_circles(float* d_randNumsX, float* d_randNumsY, int* d_cou
   int index = blockIdx.x * blockDim.x + threadIdx.x;
   int stride = blockDim.x * num_blocks;
 
-  // Iterates through
   int inCircle = 0;  
   for (int i = index; i < nsamples; i+= stride) {    
     float xValue = d_randNumsX[i];    
@@ -28,7 +26,6 @@ void count_samples_in_circles(float* d_randNumsX, float* d_randNumsY, int* d_cou
 
   __syncthreads();
 
-  // Pick thread 0 for each block to collect all points from each Thread.
   if (threadIdx.x == 0) 
   {    
     int totalInCircleForABlock = 0;    
@@ -44,20 +41,16 @@ int nsamples;
 
 int main(int argc, char* argv[]) {   
     int nsamples = atoi(argv[1]);
-    printf("nsamples: %d\n", nsamples);
-  // allocate space to hold random values    
+    printf("nsamples: %d\n", nsamples);   
   vector<float> h_randNumsX(nsamples);    
   vector<float> h_randNumsY(nsamples);
-  srand(time(NULL)); // seed with system clock
-    
-  //Initialize vector with random values    
+  srand(time(NULL));    
   for (int i = 0; i < h_randNumsX.size(); ++i) 
   {        
     h_randNumsX[i] = float(rand()) / RAND_MAX;        
     h_randNumsY[i] = float(rand()) / RAND_MAX;    
   }
-  
-  // Send random values to the GPU    
+    
   size_t size = nsamples * sizeof(float);    
   float* d_randNumsX;    
   float* d_randNumsY;    
@@ -67,7 +60,6 @@ int main(int argc, char* argv[]) {
   cudaMemcpy(d_randNumsX, &h_randNumsX.front(), size, cudaMemcpyHostToDevice);    
   cudaMemcpy(d_randNumsY, &h_randNumsY.front(), size, cudaMemcpyHostToDevice);
   
-  // Launch kernel to count samples that fell inside unit circle    
   int threadsPerBlock = 500;
   int num_blocks = nsamples / (1000 * threadsPerBlock);
   size_t countBlocks = num_blocks * sizeof(int);
@@ -75,18 +67,15 @@ int main(int argc, char* argv[]) {
   int* d_countInBlocks;
   cudaMalloc(&d_countInBlocks, countBlocks);
 
-  // CALL KERNEL  
   count_samples_in_circles<<<num_blocks, threadsPerBlock>>>(d_randNumsX, d_randNumsY, d_countInBlocks, num_blocks, nsamples);
   if ( cudaSuccess != cudaGetLastError() )
     cout << "Error!\n";
 
-  // Return back the vector from device to host
   int* h_countInBlocks = new int[num_blocks];
   cudaMemcpy(h_countInBlocks, d_countInBlocks, countBlocks, cudaMemcpyDeviceToHost);
 
   int nsamples_in_circle = 0;
   for (int i = 0 ; i < num_blocks; i++) {
-    //cout << "Value in block " + i << " is " << h_countInBlocks[i] << endl;
     nsamples_in_circle = nsamples_in_circle + h_countInBlocks[i];
   }
 
@@ -94,7 +83,6 @@ int main(int argc, char* argv[]) {
   cudaFree(d_randNumsY);
   cudaFree(d_countInBlocks);
 
-  // fraction that fell within (quarter) of unit circle
   float estimatedValue = 4.0 * float(nsamples_in_circle) / nsamples;
 
   cout << "Estimated Value: " << estimatedValue << endl;
